@@ -120,6 +120,11 @@ describe Griddler::Mailgun::Adapter, '.normalize_params' do
       to eq "<div>Lorem ipsum dolor sit amet.</div>"
   end
 
+  it "adds recipient as a vendor specific param" do
+    normalized_params = Griddler::Mailgun::Adapter.normalize_params(default_params)
+    expect(normalized_params[:vendor_specific][:recipient]).to eq "johndoe@example.com"
+  end
+
   it 'bcc is empty array when it missing' do
     normalized_params = Griddler::Mailgun::Adapter.normalize_params(default_params)
     expect(normalized_params[:bcc]).to eq []

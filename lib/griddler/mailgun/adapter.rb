@@ -26,7 +26,8 @@ module Griddler
           vendor_specific: {
             stripped_text: params["stripped-text"],
             stripped_signature: params["stripped-signature"],
-            stripped_html: params["stripped-html"]
+            stripped_html: params["stripped-html"],
+            recipient: params["recipient"]
           }
         }
       end
