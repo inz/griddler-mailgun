@@ -4,7 +4,7 @@ module Griddler
       attr_reader :params
 
       def initialize(params)
-        @params = params
+        @params = deep_clean_invalid_utf8_bytes(params)
       end
 
       def self.normalize_params(params)
@@ -33,6 +33,27 @@ module Griddler
       end
 
     private
+
+      def deep_clean_invalid_utf8_bytes(object)
+        case object
+        when Hash, ->(o) { o.respond_to?(:transform_values) }
+          object.transform_values { |v| deep_clean_invalid_utf8_bytes(v) }
+        when Array
+          object.map { |element| deep_clean_invalid_utf8_bytes(element) }
+        when String
+          clean_invalid_utf8_bytes(object)
+        else
+          object
+        end
+      end
+
+      def clean_invalid_utf8_bytes(text)
+        if text && !text.valid_encoding?
+          text.force_encoding('ISO-8859-1').encode('UTF-8')
+        else
+          text
+        end
+      end
 
       def determine_sender
         sender = param_or_header(:From)

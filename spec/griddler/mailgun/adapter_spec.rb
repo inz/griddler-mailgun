@@ -130,6 +130,12 @@ describe Griddler::Mailgun::Adapter, '.normalize_params' do
     expect(normalized_params[:bcc]).to eq []
   end
 
+  it 'accepts params with invalid encoding' do
+    params = default_params.merge(subject: 'învåli∂'.encode('iso-8859-1', undef: :replace).force_encoding('utf-8'))
+    normalized_params = Griddler::Mailgun::Adapter.normalize_params(params)
+    expect(normalized_params[:subject]).to eq 'învåli?'
+  end
+
   def upload_1
     @upload_1 ||= ActionDispatch::Http::UploadedFile.new(
       filename: 'photo1.jpg',
