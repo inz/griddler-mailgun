@@ -50,7 +50,7 @@ module Griddler
           bcc: formatted_field_from_mime_message('bcc'),
           from: formatted_field_from_mime_message('from').first || determine_sender,
           subject: mime_message.subject,
-          text: mime_message.text_part&.body&.to_s || mime_message.body.to_s,
+          text: mime_message.text_part&.body.to_s,
           html: mime_message.html_part&.body&.to_s&.presence,
           attachments: attachment_files_from_mime_message,
           headers: mime_message.header.to_s,
