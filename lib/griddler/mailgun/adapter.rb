@@ -162,7 +162,7 @@ module Griddler
         mime_message.attachments&.map do |attachment|
           ActionDispatch::Http::UploadedFile.new(
             filename: attachment.filename.presence || 'untitled',
-            type: attachment.content_type,
+            type: attachment.content_type&.split(';')&.first,
             tempfile: Tempfile.new.tap(&:binmode).tap(&:unlink).
               tap { |f| f.write attachment.decoded }.tap(&:rewind)
           )
