@@ -1,3 +1,5 @@
+require 'tempfile'
+
 module Griddler
   module Mailgun
     class Adapter
@@ -13,23 +15,7 @@ module Griddler
       end
 
       def normalize_params
-        {
-          to: to_recipients,
-          cc: cc_recipients,
-          bcc: Array.wrap(param_or_header(:Bcc)),
-          from: determine_sender,
-          subject: params[:subject],
-          text: params['body-plain'],
-          html: params['body-html'],
-          attachments: attachment_files,
-          headers: serialized_headers,
-          vendor_specific: {
-            stripped_text: params["stripped-text"],
-            stripped_signature: params["stripped-signature"],
-            stripped_html: params["stripped-html"],
-            recipient: params["recipient"]
-          }
-        }
+        normalize_params_from_mime_message || normalize_params_from_request
       end
 
     private
@@ -53,6 +39,45 @@ module Griddler
         else
           text
         end
+      end
+
+      def normalize_params_from_mime_message
+        return nil unless mime_message
+
+        {
+          to: to_recipients_from_mime_message,
+          cc: formatted_field_from_mime_message('cc'),
+          bcc: formatted_field_from_mime_message('bcc'),
+          from: formatted_field_from_mime_message('from').first || determine_sender,
+          subject: mime_message.subject,
+          text: mime_message.text_part&.body&.to_s || mime_message.body.to_s,
+          html: mime_message.html_part&.body&.to_s&.presence,
+          attachments: attachment_files_from_mime_message,
+          headers: mime_message.header.to_s,
+          vendor_specific: {
+            recipient: params['recipient']
+          }
+        }
+      end
+
+      def normalize_params_from_request
+        {
+          to: to_recipients,
+          cc: cc_recipients,
+          bcc: Array.wrap(param_or_header(:Bcc)),
+          from: determine_sender,
+          subject: params[:subject],
+          text: params['body-plain'],
+          html: params['body-html'],
+          attachments: attachment_files,
+          headers: serialized_headers,
+          vendor_specific: {
+            stripped_text: params['stripped-text'],
+            stripped_signature: params['stripped-signature'],
+            stripped_html: params['stripped-html'],
+            recipient: params['recipient']
+          }
+        }
       end
 
       def determine_sender
@@ -115,6 +140,32 @@ module Griddler
           end
         else
           params["attachments"] || []
+        end
+      end
+
+      def mime_message
+        return nil unless params['body-mime'].present?
+        @mime_message ||= Mail.new(params['body-mime'])
+      end
+
+      def formatted_field_from_mime_message(field_name)
+        mime_message[field_name].then do |f|
+          f.respond_to?(:formatted) ? f.formatted : Array(f&.to_s)
+        end
+      end
+
+      def to_recipients_from_mime_message
+        Array(params['recipient'].presence) + formatted_field_from_mime_message('to')
+      end
+
+      def attachment_files_from_mime_message
+        mime_message.attachments&.map do |attachment|
+          ActionDispatch::Http::UploadedFile.new(
+            filename: attachment.filename.presence || 'untitled',
+            type: attachment.content_type,
+            tempfile: Tempfile.new.tap(&:binmode).tap(&:unlink).
+              tap { |f| f.write attachment.decoded }.tap(&:rewind)
+          )
         end
       end
     end
